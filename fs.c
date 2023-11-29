@@ -88,6 +88,14 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   // Insert your code here
   // ++++++++++++++++++++++++
 
+  i32 inum = bfsFdToInum(fd); //get inum to the file
+  i32 cursorPos = bfsTell(fd); //get the files cursor position
+  i32 startRead = cursorPos; //where to start reading
+  i32 endRead = cursorPos + numb; //where to stop reading
+  for(i32 i = startRead; i <= endRead; i++){
+    //bfsRead(inum. i, )
+  }
+
   FATAL(ENYI);                                  // Not Yet Implemented!
   return 0;
 }
@@ -118,12 +126,12 @@ i32 fsSeek(i32 fd, i32 offset, i32 whence) {
       g_oft[ofte].curs += offset;
       break;
     case SEEK_END: {
-        i32 end = fsSize(fd);
-        g_oft[ofte].curs = end + offset;
-        break;
-      }
+      i32 end = fsSize(fd);
+      g_oft[ofte].curs = end + offset;
+      break;
+    }
     default:
-        FATAL(EBADWHENCE);
+      FATAL(EBADWHENCE);
   }
   return 0;
 }
