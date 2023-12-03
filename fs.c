@@ -83,21 +83,45 @@ i32 fsOpen(str fname) {
 // read (may be less than 'numb' if we hit EOF).  On failure, abort
 // ============================================================================
 i32 fsRead(i32 fd, i32 numb, void* buf) {
-
-  // ++++++++++++++++++++++++
-  // Insert your code here
-  // ++++++++++++++++++++++++
-
-  i32 inum = bfsFdToInum(fd); //get inum to the file
+  //check how much to read to neg and file size
+  if(numb <= 0){ FATAL(ENEGNUMB); }
+  i32 fSize = fsSize(fd);
+  if(numb > fSize){ FATAL(EBIGNUMB); }
+  
+  //setup cursor for reading
   i32 cursorPos = bfsTell(fd); //get the files cursor position
   i32 startRead = cursorPos; //where to start reading
-  i32 endRead = cursorPos + numb; //where to stop reading
-  for(i32 i = startRead; i <= endRead; i++){
-    //bfsRead(inum. i, )
+  i32 endRead = startRead + numb; //where to stop reading
+
+  //check if numb from cursor goes past file
+  i32 numRead = numb;
+  if(startRead + numb > endRead){
+    numRead = fSize - startRead;
+    endRead = startRead + numRead;
+  }
+  
+  //setup read buffer
+  i32 startFbn = startRead / BYTESPERBLOCK;
+  i32 endFBN = endRead / BYTESPERBLOCK;
+  i8 tBlocks = endFBN - startFbn + 1;
+  i8 readBuffer[tBlocks * BYTESPERBLOCK];
+  i8 tempBuffer[BYTESPERBLOCK];
+  i32 offset = 0;
+
+  i32 inum = bfsFdToInum(fd); //get inum to the file
+
+  //read from disk into buffer
+  for(i32 i = startFbn; i <= endFBN; i++){
+    bfsRead(inum, i, tempBuffer);
+    memcpy((readBuffer + offset), tempBuffer, BYTESPERBLOCK);
+    offset += BYTESPERBLOCK;
   }
 
-  FATAL(ENYI);                                  // Not Yet Implemented!
-  return 0;
+  //move into og buffer
+  memcpy(buf, (readBuffer + (cursorPos % BYTESPERBLOCK)), numRead);
+  fsSeek(fd, numRead, SEEK_CUR);
+
+  return numRead;
 }
 
 
