@@ -89,13 +89,15 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   if(numb > fSize){ FATAL(EBIGNUMB); }
   
   //setup cursor for reading
-  i32 cursorPos = bfsTell(fd); //get the files cursor position
+  i32 cursorPos = fsTell(fd); //get the files cursor position
   i32 startRead = cursorPos; //where to start reading
   i32 endRead = startRead + numb; //where to stop reading
+  //check if cursor is valid
+  if(cursorPos < 0 || cursorPos >= (BYTESPERBLOCK * BLOCKSPERDISK)){ FATAL(EBADCURS); }
 
-  //check if numb from cursor goes past file
+  //check if numb from cursor goes past EOF
   i32 numRead = numb;
-  if(startRead + numb > endRead){
+  if(endRead > fSize){
     numRead = fSize - startRead;
     endRead = startRead + numRead;
   }
@@ -103,7 +105,7 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   //setup read buffer
   i32 startFbn = startRead / BYTESPERBLOCK;
   i32 endFBN = endRead / BYTESPERBLOCK;
-  i8 tBlocks = endFBN - startFbn + 1;
+  i8 tBlocks = endFBN - startFbn + 1; //inc for indirect
   i8 readBuffer[tBlocks * BYTESPERBLOCK];
   i8 tempBuffer[BYTESPERBLOCK];
   i32 offset = 0;
@@ -111,11 +113,19 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   i32 inum = bfsFdToInum(fd); //get inum to the file
 
   //read from disk into buffer
+  bool bad = false;
   for(i32 i = startFbn; i <= endFBN; i++){
-    bfsRead(inum, i, tempBuffer);
+    if(bfsRead(inum, i, tempBuffer) > 0){ //bad read
+      bad = true; 
+      break;
+    }
     memcpy((readBuffer + offset), tempBuffer, BYTESPERBLOCK);
+    //printf("cursor: %d\n", fsTell(fd));
     offset += BYTESPERBLOCK;
   }
+
+  //return bad read
+  if(bad){ FATAL(EBADREAD); }
 
   //move into og buffer
   memcpy(buf, (readBuffer + (cursorPos % BYTESPERBLOCK)), numRead);
@@ -190,9 +200,7 @@ i32 fsSize(i32 fd) {
 // ============================================================================
 i32 fsWrite(i32 fd, i32 numb, void* buf) {
 
-  // ++++++++++++++++++++++++
-  // Insert your code here
-  // ++++++++++++++++++++++++
+
 
   FATAL(ENYI);                                  // Not Yet Implemented!
   return 0;

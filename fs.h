@@ -6,6 +6,7 @@
 // ===================================================================
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "alias.h"
 #include "errors.h"
 
