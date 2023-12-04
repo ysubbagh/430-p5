@@ -196,17 +196,45 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   //setup
   i32 cursor = fsTell(fd);
   i32 startFBN = cursor / BYTESPERBLOCK;
-  i32 endFBN = (cursor + numb) / BYTESPERBLOCK;
+  i32 endFBN = (cursor + numb + 1) / BYTESPERBLOCK;
   i32 inum = bfsFdToInum(fd);
+  i32 blockCount = endFBN - startFBN + 1;
 
-  //check if file size is ok, if not, make adjustment
+  //some error handling
+  if(numb <= 0){ FATAL(ENEGNUMB); }
+  if(numb >= (BYTESPERBLOCK * BLOCKSPERDISK)){ FATAL(EBIGNUMB); }
+  if(cursor < 0 || cursor >= (BYTESPERBLOCK * BLOCKSPERDISK)){ FATAL(EBADCURS); }
+  if(blockCount > 5) { FATAL(EBADFBN); }
+
+  //check if file size is ok, if not, make adjustments
   if(endFBN > (fsSize(fd) / BYTESPERBLOCK)){
     bfsExtend(inum, endFBN);
     bfsSetSize(inum, cursor + numb);
   }
-
   
+  //setup read/write buffers
+  i8 bioBuff[blockCount * BYTESPERBLOCK];
+  i8 tempBuff[BYTESPERBLOCK];
+  //copy first and last block, edge holders
+  i32 bad = bfsRead(inum, startFBN, tempBuff);
+  if(bad < 0 || bad > 0) { FATAL(EBADREAD); } //check read was good
+  memcpy(bioBuff, tempBuff, BYTESPERBLOCK);
+  if(blockCount > 1){
+    bad = bfsRead(inum, endFBN, tempBuff);
+    if(bad < 0 ||  bad > 0) { FATAL(EBADREAD); } //check read was good
+    memcpy(bioBuff + (blockCount - 1) * BYTESPERBLOCK, tempBuff, BYTESPERBLOCK);
+  }
 
-  fsSeek(fd, numb, SEEK_CUR);
+  //get FBN to DBN
+  i32 offset = 0;
+  for(i32 i = startFBN; i <= endFBN; i++){
+
+
+    offset += BYTESPERBLOCK;
+  }
+
+  // FATAL(EBADWRITE); //bad write
+
+  fsSeek(fd, numb, SEEK_CUR); //move cursor to new pos
   return 0;
 }
