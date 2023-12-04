@@ -215,25 +215,30 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   //setup read/write buffers
   i8 bioBuff[blockCount * BYTESPERBLOCK];
   i8 tempBuff[BYTESPERBLOCK];
+
   //copy first and last block, edge holders
   i32 bad = bfsRead(inum, startFBN, tempBuff);
   if(bad < 0 || bad > 0) { FATAL(EBADREAD); } //check read was good
   memcpy(bioBuff, tempBuff, BYTESPERBLOCK);
+
   if(blockCount > 1){
     bad = bfsRead(inum, endFBN, tempBuff);
     if(bad < 0 ||  bad > 0) { FATAL(EBADREAD); } //check read was good
     memcpy(bioBuff + (blockCount - 1) * BYTESPERBLOCK, tempBuff, BYTESPERBLOCK);
+  
+    //get FBN to DBN
+    i32 dbn = ENODBN;
+    i32 offset = 0;
+    for(i32 i = startFBN; i <= endFBN; i++){
+      memcpy(tempBuff, bioBuff + offset, BYTESPERBLOCK);
+      dbn = bfsFbnToDbn(inum, i);
+      //printf("dbn: %d\n", dbn);
+      if(dbn == ENODBN) { FATAL(EBADDBN); } //bad dbn
+      bad = bioWrite(dbn, tempBuff);
+      if(bad < 0 || bad > 0) { FATAL(EBADWRITE); } //check for bad write
+      offset += BYTESPERBLOCK;
+    }
   }
-
-  //get FBN to DBN
-  i32 offset = 0;
-  for(i32 i = startFBN; i <= endFBN; i++){
-
-
-    offset += BYTESPERBLOCK;
-  }
-
-  // FATAL(EBADWRITE); //bad write
 
   fsSeek(fd, numb, SEEK_CUR); //move cursor to new pos
   return 0;

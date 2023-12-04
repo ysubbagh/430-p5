@@ -9,7 +9,6 @@
 // Read 512 bytes from block number 'dbn' in the BFS disk into buffer 'buf'
 // ============================================================================
 i32 bioRead(i32 dbn, void* buf) {
-
   if (dbn < 0)             FATAL(EBADDBN);
   if (dbn > BLOCKSPERDISK) FATAL(EBADDBN);
 
