@@ -105,27 +105,21 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   //setup read buffer
   i32 startFbn = startRead / BYTESPERBLOCK;
   i32 endFBN = endRead / BYTESPERBLOCK;
-  i8 tBlocks = endFBN - startFbn + 1; //inc for indirect
-  i8 readBuffer[tBlocks * BYTESPERBLOCK];
+  i8 readBuffer[(endFBN - startFbn + 1) * BYTESPERBLOCK];
   i8 tempBuffer[BYTESPERBLOCK];
   i32 offset = 0;
-
   i32 inum = bfsFdToInum(fd); //get inum to the file
 
   //read from disk into buffer
-  bool bad = false;
   for(i32 i = startFbn; i <= endFBN; i++){
-    if(bfsRead(inum, i, tempBuffer) > 0){ //bad read
-      bad = true; 
-      break;
+    i32 read = bfsRead(inum, i, tempBuffer);
+    if(read > 0 || read < 0){ //bad read error handling
+      FATAL(EBADREAD);
     }
     memcpy((readBuffer + offset), tempBuffer, BYTESPERBLOCK);
     //printf("cursor: %d\n", fsTell(fd));
     offset += BYTESPERBLOCK;
   }
-
-  //return bad read
-  if(bad){ FATAL(EBADREAD); }
 
   //move into og buffer
   memcpy(buf, (readBuffer + (cursorPos % BYTESPERBLOCK)), numRead);
@@ -199,9 +193,20 @@ i32 fsSize(i32 fd) {
 // destination file.  On success, return 0.  On failure, abort
 // ============================================================================
 i32 fsWrite(i32 fd, i32 numb, void* buf) {
+  //setup
+  i32 cursor = fsTell(fd);
+  i32 startFBN = cursor / BYTESPERBLOCK;
+  i32 endFBN = (cursor + numb) / BYTESPERBLOCK;
+  i32 inum = bfsFdToInum(fd);
 
+  //check if file size is ok, if not, make adjustment
+  if(endFBN > (fsSize(fd) / BYTESPERBLOCK)){
+    bfsExtend(inum, endFBN);
+    bfsSetSize(inum, cursor + numb);
+  }
 
+  
 
-  FATAL(ENYI);                                  // Not Yet Implemented!
+  fsSeek(fd, numb, SEEK_CUR);
   return 0;
 }
