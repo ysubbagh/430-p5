@@ -225,10 +225,12 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
     bad = bfsRead(inum, endFBN, tempBuff);
     if(bad < 0 ||  bad > 0) { FATAL(EBADREAD); } //check read was good
     memcpy(bioBuff + (blockCount - 1) * BYTESPERBLOCK, tempBuff, BYTESPERBLOCK);
-  
+    memcpy(bioBuff + cursor % BYTESPERBLOCK, buf, numb);
+
     //get FBN to DBN
     i32 dbn = ENODBN;
     i32 offset = 0;
+    
     for(i32 i = startFBN; i <= endFBN; i++){
       memcpy(tempBuff, bioBuff + offset, BYTESPERBLOCK);
       dbn = bfsFbnToDbn(inum, i);
