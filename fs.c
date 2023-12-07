@@ -207,7 +207,7 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   if(blockCount > 5) { FATAL(EBADFBN); }
 
   //check if file size is ok, if not, make adjustments
-  if(endFBN > (fsSize(fd) / BYTESPERBLOCK)){
+  if(endFBN > ((fsSize(fd) - 1) / BYTESPERBLOCK)){
     bfsExtend(inum, endFBN);
     bfsSetSize(inum, cursor + numb);
   }
