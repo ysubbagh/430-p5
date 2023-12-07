@@ -1,0 +1,1 @@
+must use "bash ./runit.sh" to run properly
