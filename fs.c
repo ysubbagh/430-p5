@@ -204,7 +204,8 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   if(numb <= 0){ FATAL(ENEGNUMB); }
   if(numb >= (BYTESPERBLOCK * BLOCKSPERDISK)){ FATAL(EBIGNUMB); }
   if(cursor < 0 || cursor >= (BYTESPERBLOCK * BLOCKSPERDISK)){ FATAL(EBADCURS); }
-  if(blockCount > 5) { FATAL(EBADFBN); }
+  if(blockCount > 5 || blockCount <= 0) { FATAL(EBADFBN); }
+  if(fsSize(fd) <= 0) { FATAL(EBADINUM); }
 
   //check if file size is ok, if not, make adjustments
   if(endFBN > ((fsSize(fd) - 1) / BYTESPERBLOCK)){
@@ -216,23 +217,27 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   i8 bioBuff[blockCount * BYTESPERBLOCK];
   i8 tempBuff[BYTESPERBLOCK];
 
-  //copy first and last block, edge holders
+  //copy first block
   i32 bad = bfsRead(inum, startFBN, tempBuff);
   if(bad < 0 || bad > 0) { FATAL(EBADREAD); } //check read was good
   memcpy(bioBuff, tempBuff, BYTESPERBLOCK);
 
+  //write rest of blocks, if there is
   if(blockCount > 1){
+    //copy last black, edge holders
     bad = bfsRead(inum, endFBN, tempBuff);
-    if(bad < 0 ||  bad > 0) { FATAL(EBADREAD); } //check read was good
+    if(bad < 0 || bad > 0) { FATAL(EBADREAD); } //check if read was good
     memcpy(bioBuff + (blockCount - 1) * BYTESPERBLOCK, tempBuff, BYTESPERBLOCK);
-    memcpy(bioBuff + cursor % BYTESPERBLOCK, buf, numb);
+    memcpy(bioBuff + (cursor % BYTESPERBLOCK), buf, numb);
 
     //get FBN to DBN
     i32 dbn = ENODBN;
     i32 offset = 0;
     
+    //copy middle meat
     for(i32 i = startFBN; i <= endFBN; i++){
       memcpy(tempBuff, bioBuff + offset, BYTESPERBLOCK);
+      dbn = ENODBN; //for testing validity
       dbn = bfsFbnToDbn(inum, i);
       //printf("dbn: %d\n", dbn);
       if(dbn == ENODBN) { FATAL(EBADDBN); } //bad dbn
