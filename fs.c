@@ -89,17 +89,16 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   if(numb > fSize){ FATAL(EBIGNUMB); }
   
   //setup cursor for reading
-  i32 cursorPos = fsTell(fd); //get the files cursor position
-  i32 startRead = cursorPos; //where to start reading
+  i32 cursor = fsTell(fd); //get the files cursor position
+  i32 startRead = cursor; //where to start reading
   i32 endRead = startRead + numb; //where to stop reading
   //check if cursor is valid
-  if(cursorPos < 0 || cursorPos >= (BYTESPERBLOCK * BLOCKSPERDISK)){ FATAL(EBADCURS); }
+  if(cursor < 0 || cursor >= (BYTESPERBLOCK * BLOCKSPERDISK)){ FATAL(EBADCURS); }
 
-  //check if numb from cursor goes past EOF
-  i32 numRead = numb;
+  //check if numb from cursor goes past end of the file
   if(endRead > fSize){
-    numRead = fSize - startRead;
-    endRead = startRead + numRead;
+    numb = fSize - startRead;
+    endRead = startRead + numb;
   }
   
   //setup read buffer
@@ -109,23 +108,22 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   i8 tempBuffer[BYTESPERBLOCK];
   i32 offset = 0;
   i32 inum = bfsFdToInum(fd); //get inum to the file
+  i32 read;
 
   //read from disk into buffer
   for(i32 i = startFbn; i <= endFBN; i++){
-    i32 read = bfsRead(inum, i, tempBuffer);
-    if(read > 0 || read < 0){ //bad read error handling
-      FATAL(EBADREAD);
-    }
+    read = bfsRead(inum, i, tempBuffer);
+    if(read > 0 || read < 0){ FATAL(EBADREAD); } //bad read error handling
     memcpy((readBuffer + offset), tempBuffer, BYTESPERBLOCK);
     //printf("cursor: %d\n", fsTell(fd));
     offset += BYTESPERBLOCK;
   }
 
-  //move into og buffer
-  memcpy(buf, (readBuffer + (cursorPos % BYTESPERBLOCK)), numRead);
-  fsSeek(fd, numRead, SEEK_CUR);
+  //move into og buffer and move curosr
+  memcpy(buf, (readBuffer + (cursor % BYTESPERBLOCK)), numb);
+  fsSeek(fd, numb, SEEK_CUR);
 
-  return numRead;
+  return numb;
 }
 
 
@@ -196,7 +194,7 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   //setup
   i32 cursor = fsTell(fd);
   i32 startFBN = cursor / BYTESPERBLOCK;
-  i32 endFBN = (cursor + numb + 1) / BYTESPERBLOCK;
+  i32 endFBN = (cursor + numb) / BYTESPERBLOCK;
   i32 inum = bfsFdToInum(fd);
   i32 blockCount = endFBN - startFBN + 1;
 
@@ -222,31 +220,30 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   if(bad < 0 || bad > 0) { FATAL(EBADREAD); } //check read was good
   memcpy(bioBuff, tempBuff, BYTESPERBLOCK);
 
-  //write rest of blocks, if there is
-  if(blockCount > 1){
-    //copy last black, edge holders
-    bad = bfsRead(inum, endFBN, tempBuff);
-    if(bad < 0 || bad > 0) { FATAL(EBADREAD); } //check if read was good
-    memcpy(bioBuff + (blockCount - 1) * BYTESPERBLOCK, tempBuff, BYTESPERBLOCK);
-    memcpy(bioBuff + (cursor % BYTESPERBLOCK), buf, numb);
+  //copy last black, edge holders
+  bad = bfsRead(inum, endFBN, tempBuff);
+  if(bad < 0 || bad > 0) { FATAL(EBADREAD); } //check if read was good
+  memcpy((bioBuff + (blockCount - 1) * BYTESPERBLOCK), tempBuff, BYTESPERBLOCK);
 
-    //get FBN to DBN
-    i32 dbn = ENODBN;
-    i32 offset = 0;
-    
-    //copy middle meat
-    for(i32 i = startFBN; i <= endFBN; i++){
-      memcpy(tempBuff, bioBuff + offset, BYTESPERBLOCK);
-      dbn = ENODBN; //for testing validity
-      dbn = bfsFbnToDbn(inum, i);
-      //printf("dbn: %d\n", dbn);
-      if(dbn == ENODBN) { FATAL(EBADDBN); } //bad dbn
-      bad = bioWrite(dbn, tempBuff);
-      if(bad < 0 || bad > 0) { FATAL(EBADWRITE); } //check for bad write
-      offset += BYTESPERBLOCK;
-    }
+  //copy buf (new data) into bioBuff to be placed into blocks later
+  memcpy((bioBuff + (cursor % BYTESPERBLOCK)), buf, numb);
+
+  //get FBN to DBN, setup copy
+  i32 dbn;
+  i32 offset = 0;
+  
+  //copy middle meat
+  for(i32 i = startFBN; i <= endFBN; i++){
+    memcpy(tempBuff, bioBuff + offset, BYTESPERBLOCK);
+    dbn = ENODBN; //for testing validity
+    dbn = bfsFbnToDbn(inum, i);
+    //printf("dbn: %d\n", dbn);
+    if(dbn == ENODBN) { FATAL(EBADDBN); } //bad dbn
+    bad = bioWrite(dbn, tempBuff);
+    if(bad < 0 || bad > 0) { FATAL(EBADWRITE); } //check for bad write
+    offset += BYTESPERBLOCK;
   }
 
   fsSeek(fd, numb, SEEK_CUR); //move cursor to new pos
-  return 0;
+  return 0; //good write
 }
