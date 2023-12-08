@@ -232,7 +232,7 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
   i32 dbn;
   i32 offset = 0;
   
-  //copy middle meat
+  //copy meat into blocks
   for(i32 i = startFBN; i <= endFBN; i++){
     memcpy(tempBuff, bioBuff + offset, BYTESPERBLOCK);
     dbn = ENODBN; //for testing validity
